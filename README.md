@@ -36,7 +36,7 @@ There is Example project included which serves as tutorial. There is
 * https://sourceforge.net/projects/naivelangtools/
 * https://www.assembla.com/spaces/naive-language-tools
 
-Please visit http://skila.pl to read news and get up-to-date links.
+Please visit https://aboutskila.wordpress.com/ to read news and get up-to-date links.
 
 
 ## Alternatives to NLT
