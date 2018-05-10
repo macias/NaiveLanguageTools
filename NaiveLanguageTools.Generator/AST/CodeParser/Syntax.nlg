@@ -1,0 +1,66 @@
+using 
+  System
+  System.Collections.Generic
+  System.Linq
+  System.Text
+end
+
+types
+  IDENTIFIER string;
+end
+
+namespace NaiveLanguageTools.Generator.AST.CodeParser;
+
+lexer LexerFactory;
+parser ParserFactory;
+options mre;
+
+tokens SymbolEnum;
+
+states StateEnum
+*INIT
+end
+
+scanning
+"<" -> LANGLE;
+">" -> RANGLE; 
+"[" -> LBRACKET;
+"]" -> RBRACKET;
+"." -> DOT;
+"," -> COMMA;
+"new" -> NEW;
+/[ \r\n\t]+/ -> { };
+/[A-Za-z_][A-Za-z_0-9]*/ -> IDENTIFIER;
+/./ -> WHATEVER;
+end
+
+precedence
+op shift DOT LANGLE LBRACKET;
+end
+
+parsing
+
+// it is enough if the beginning of the code has constructor call
+s -> NEW t:typename whatever
+     { t };
+
+array string -> LBRACKET c:COMMA* RBRACKET
+                { "["+String.Join("",c)+"]" };
+
+jagged_array string -> a:array+
+                       { String.Join("",a) };
+
+dot_identifier string -> (DOT- id:IDENTIFIER)+
+                         { String.Join(".",id) };
+
+@typename_list  string -> (COMMA- t:typename)+
+                          { String.Join(",",t) };
+
+@typename string -> id:dot_identifier (l:LANGLE tt:typename_list r:RANGLE)? a:jagged_array?
+                    { id + l + tt + r + a };
+
+whatever -> s:[WHATEVER IDENTIFIER DOT COMMA LANGLE RANGLE NEW LBRACKET RBRACKET]*
+            { s }
+            ;
+
+end

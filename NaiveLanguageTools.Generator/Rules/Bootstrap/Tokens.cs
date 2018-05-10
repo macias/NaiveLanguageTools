@@ -1,0 +1,133 @@
+
+using System;
+
+
+
+namespace NaiveLanguageTools.Generator.Rules.Bootstrap
+{
+    public abstract class Symbols
+    {
+        public const int Error = 0;
+        public const int EOF = 1;
+        public const int USING = 2;
+        public const int NAMESPACE = 3;
+        public const int PARSER = 4;
+        public const int TOKENS = 5;
+        public const int PRECEDENCE = 6;
+        public const int END = 7;
+        public const int IDENTIFIER = 8;
+        public const int SEMI = 9;
+        public const int RARROW = 10;
+        public const int PIPE = 11;
+        public const int LBRACE = 12;
+        public const int RBRACE = 13;
+        public const int PARSING = 14;
+        public const int QUESTION_MARK = 15;
+        public const int COLON = 16;
+        public const int DOT = 17;
+        public const int LBRACKET = 18;
+        public const int RBRACKET = 19;
+        public const int TYPES = 20;
+        public const int LPAREN = 21;
+        public const int RPAREN = 22;
+        public const int STATES = 23;
+        public const int SCANNING = 24;
+        public const int STRING = 25;
+        public const int REGEX = 26;
+        public const int EOF_ACTION = 27;
+        public const int CODE_SNIPPET = 28;
+        public const int CODE_PLACEHOLDER = 29;
+        public const int ASTERISK = 30;
+        public const int LEXER = 31;
+        public const int COMMA = 32;
+        public const int LMACRO = 33;
+        public const int RMACRO = 34;
+        public const int LANGLE = 35;
+        public const int RANGLE = 36;
+        public const int grammar = 37;
+        public const int opt_ns_list = 38;
+        public const int opt_prec_entries = 39;
+        public const int prec_entry_line = 40;
+        public const int opt_prec_word_list = 41;
+        public const int deco_symbol = 42;
+        public const int sym_list = 43;
+        public const int alt = 44;
+        public const int alt_list = 45;
+        public const int prod = 46;
+        public const int opt_prod_list = 47;
+        public const int start_symbol = 48;
+        public const int dot_identifier = 49;
+        public const int opt_group_list = 50;
+        public const int group = 51;
+        public const int opt_types = 52;
+        public const int type_info = 53;
+        public const int code_body = 54;
+        public const int state_item = 55;
+        public const int opt_mixed_state_list = 56;
+        public const int lex_item_group = 57;
+        public const int lex_pattern = 58;
+        public const int def_state_item = 59;
+        public const int state_list = 60;
+        public const int opt_lex_items = 61;
+        public const int code_macro = 62;
+        public const int opt_code_body = 63;
+        public const int sym_list_block = 64;
+        public const int code_mix = 65;
+        public const int PLUS = 66;
+        public const int id_list = 67;
+        public const int MINUS = 68;
+        public const int grammar_elements = 69;
+        public const int grammar_elem = 70;
+        public const int EMPTY = 71;
+        public const int AT = 72;
+        public const int named_symbol = 73;
+        public const int anon_symbol = 74;
+        public const int AND = 75;
+        public const int typename = 76;
+        public const int typename_list = 77;
+        public const int TERMINALS = 78;
+        public const int opt_id_list = 79;
+        public const int id_list_spaced = 80;
+        public const int precedence_word = 81;
+        public const int ACCENT = 82;
+        public const int opt_taboo_group = 83;
+        public const int HASH = 84;
+        public const int MARK = 85;
+        public const int opt_alt_action = 86;
+        public const int PLUSPLUS = 87;
+        public const int INT = 88;
+        public const int OVERRIDE = 89;
+        public const int OPTIONS = 90;
+        public const int lexer_header = 91;
+        public const int opt_context = 92;
+        public const int context_list = 93;
+        public const int prec_entry = 94;
+        public const int prec_entry_head = 95;
+        public const int option_list = 96;
+        public const int option = 97;
+        public const int context_alt_list = 98;
+        public const int state_action = 99;
+        public const int variable = 100;
+        public const int EQ = 101;
+        public const int single_lex_pattern = 102;
+        public const int combo_lex_pattern = 103;
+        public const int lex_pattern_expr = 104;
+        public const int VAR = 105;
+        public const int factory_name = 106;
+        public const int factory_extend = 107;
+        public const int factory_info = 108;
+        public const int braced_opt_code_body = 109;
+        public const int input_list = 110;
+        public const int macro_ctrl = 111;
+        public const int code_atom = 112;
+        public const int repetition = 113;
+        public const int symbol = 114;
+        public const int opt_repetition = 115;
+        public const int dynamic_token = 116;
+        public const int factory_params = 117;
+        public const int PATTERNS = 118;
+        public const int PLUS_OPT = 119;
+    }
+
+}
+

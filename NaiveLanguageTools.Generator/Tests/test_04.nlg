@@ -1,0 +1,25 @@
+namespace Testsuite;
+
+lexer LexerFactory04;
+parser ParserFactory04;
+tokens SymbolEnum04;
+
+states StateEnum
+*INIT
+end
+
+scanning
+"(" -> LPAREN;
+")" -> RPAREN;
+"." -> DOT;
+end
+
+parsing
+
+s -> a { };
+
+@b -> LPAREN a* RPAREN { };
+
+@a -> (DOT- b)+ { $b };
+
+end

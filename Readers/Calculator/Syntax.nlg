@@ -1,0 +1,77 @@
+using 
+  System.Text
+end
+
+types
+exp IMathNode;
+NUM double;
+end
+
+namespace Calculator;
+
+lexer LexerFactory;
+parser ParserFactory;
+
+tokens TokenEnum;
+
+states StateEnum
+*INIT // default state
+end
+
+scanning
+"+" -> PLUS;
+"-" -> MINUS;
+"*" -> MULT;
+"/" -> DIV;
+"^" -> POWER;
+
+/[0-9]+(\.[0-9]+)?([Ee][\-+]?[0-9]+)?/ -> NUM, Convert.ToDouble($text,System.Globalization.CultureInfo.InvariantCulture);
+
+" " -> { };
+
+/./ -> Error; 
+
+%EOF -> EOF;
+
+end
+
+precedence
+
+op left MINUS PLUS;
+op left MULT DIV;
+op right POWER;
+
+end
+
+parsing
+
+s -> exp { $exp };
+
+@exp -> "(" exp ")"
+       { $exp }
+	 | e1:exp PLUS e2:exp
+	   { new AddNode(e1, e2) }
+     | e1:exp MINUS e2:exp
+	   { new SubNode(e1, e2) }
+     | e1:exp MULT e2:exp
+	   { new MultNode(e1, e2) }
+     | e1:exp DIV e2:exp 
+	   { new DivNode(e1, e2) }
+     | e1:exp POWER e2:exp
+	   { new PowNode(e1, e2) }
+     | "sin" "(" exp ")"
+	   { new SinNode($exp) }
+     | "cos" "(" exp ")"
+	   { new CosNode($exp) }
+     | "sqrt" "(" exp ")"
+	   { new SqrtNode($exp) }
+     | "pi"
+	   { new NumNode(Math.PI) }
+     | "e"
+	   { new NumNode(Math.E) }
+     | NUM
+	   { new NumNode($NUM) }
+	 ;
+
+
+end

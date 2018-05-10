@@ -1,0 +1,14 @@
+The weird calculator to show how patterns and disambiguation works.
+a + b   : adds a and b
+a - b   : subtract b from a
+a < b   : binary shift left
+a > b   : binary shift right
+a < b > : the b-th bit of a
+
+To make it work do the following:
+* build entire solution
+* run "refresh" from command line to re-generate .auto.cs files
+* run the project
+
+This example is covered by article at:
+http://www.codeproject.com/Articles/679139/Ambiguity-Let-NLT-parse-it-for-you

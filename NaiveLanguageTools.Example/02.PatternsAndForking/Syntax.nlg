@@ -1,0 +1,178 @@
+using 
+  System
+  System.Collections.Generic
+  System.Linq
+  System.Text
+end
+
+namespace NaiveLanguageTools.Example.PatternsAndForking;
+
+lexer LexerFactory;
+options mre;
+
+tokens SymbolEnum;
+
+states StateEnum
+*INIT // default state
+end
+
+scanning
+"+" -> PLUS;
+"-" -> MINUS;
+"<" -> LANGLE;
+">" -> RANGLE;
+
+// regex as pattern
+/[0-9]+/ -> { 
+                $token = SymbolEnum.NUM;
+                $value = Convert.ToInt32($text);
+         };
+
+" " -> { };
+
+%EOF -> EOF;
+
+end
+
+parser ParserFactory;
+
+types
+expr Tuple<int,string>;
+NUM int;
+end
+
+// --- FINAL STEP ----------------------------------------------------
+
+precedence
+op left MINUS PLUS;
+
+rs shift LANGLE expr(PLUS MINUS) expr;
+rs shift RANGLE expr(PLUS MINUS) expr;
+
+rs try LANGLE expr(LANGLE RANGLE) expr;
+rs try RANGLE expr(LANGLE RANGLE) expr;
+end
+
+parsing
+
+comp -> e:expr { e };
+
+@expr -> e1:expr MINUS e2:expr 
+ 	     { pair(e1.Item1 - e2.Item1, "("+e1.Item2+" - "+e2.Item2+")") }
+	   | e1:expr PLUS e2:expr 
+         { pair(e1.Item1 + e2.Item1, "("+e1.Item2+" + "+e2.Item2+")") }
+       | e1:expr ^LANGLE e2:expr #LANGLE #RANGLE 
+	     { pair(e1.Item1 << e2.Item1, "("+e1.Item2+" < "+e2.Item2+")") }
+       | %mark(RANGLE) e1:expr RANGLE e2:expr #LANGLE #RANGLE 
+	     { pair(e1.Item1 >> e2.Item1, "("+e1.Item2+" > "+e2.Item2+")") }
+       | e1:expr #LANGLE #RANGLE LANGLE e2:expr #LANGLE RANGLE 
+	     { pair((e1.Item1 & (1 << e2.Item1)) >> e2.Item1, "("+e1.Item2+"["+e2.Item2+"])") }
+       | n:NUM 
+	    { pair(n, n) }
+	   ;
+end
+
+// ---- step 1 --------------------------------------------------------------------
+/*
+parsing
+
+comp -> e:expr { e };
+
+@expr -> e1:expr MINUS e2:expr 
+ 	     { pair(e1.Item1 - e2.Item1, "("+e1.Item2+" - "+e2.Item2+")") }
+	   | e1:expr PLUS e2:expr 
+         { pair(e1.Item1 + e2.Item1, "("+e1.Item2+" + "+e2.Item2+")") }
+       | e1:expr LANGLE e2:expr
+	     { pair(e1.Item1 << e2.Item1, "("+e1.Item2+" < "+e2.Item2+")") }
+       | e1:expr RANGLE e2:expr
+	     { pair(e1.Item1 >> e2.Item1, "("+e1.Item2+" > "+e2.Item2+")") }
+       | e1:expr LANGLE e2:expr RANGLE 
+	     { pair((e1.Item1 & (1 << e2.Item1)) >> e2.Item1, "("+e1.Item2+"["+e2.Item2+"])") }
+       | n:NUM 
+	     { pair(n, n) }
+	   ;
+end
+*/
+// ---- step 2 --------------------------------------------------------------------
+/*
+precedence
+op left MINUS PLUS;
+end
+
+parsing
+
+comp -> e:expr { e };
+
+@expr -> e1:expr MINUS e2:expr 
+	     { pair(e1.Item1 - e2.Item1, "("+e1.Item2+" - "+e2.Item2+")") }
+	   | e1:expr PLUS e2:expr 
+         { pair(e1.Item1 + e2.Item1, "("+e1.Item2+" + "+e2.Item2+")") }
+       | e1:expr LANGLE e2:expr
+	     { pair(e1.Item1 << e2.Item1, "("+e1.Item2+" < "+e2.Item2+")") }
+       | e1:expr RANGLE e2:expr
+	     { pair(e1.Item1 >> e2.Item1, "("+e1.Item2+" > "+e2.Item2+")") }
+       | e1:expr LANGLE e2:expr RANGLE 
+	     { pair((e1.Item1 & (1 << e2.Item1)) >> e2.Item1, "("+e1.Item2+"["+e2.Item2+"])") }
+       | n:NUM 
+	     { pair(n, n) }
+	   ;
+end
+*/
+// ---- step 3 --------------------------------------------------------------------
+/*
+precedence
+op left MINUS PLUS;
+op left LANGLE RANGLE;
+end
+
+parsing
+
+comp -> e:expr { e };
+
+@expr -> e1:expr MINUS e2:expr 
+	     { pair(e1.Item1 - e2.Item1, "("+e1.Item2+" - "+e2.Item2+")") }
+	   | e1:expr PLUS e2:expr 
+         { pair(e1.Item1 + e2.Item1, "("+e1.Item2+" + "+e2.Item2+")") }
+       | e1:expr LANGLE e2:expr
+	     { pair(e1.Item1 << e2.Item1, "("+e1.Item2+" < "+e2.Item2+")") }
+       | e1:expr RANGLE e2:expr
+	     { pair(e1.Item1 >> e2.Item1, "("+e1.Item2+" > "+e2.Item2+")") }
+       | e1:expr LANGLE e2:expr RANGLE 
+	     { pair((e1.Item1 & (1 << e2.Item1)) >> e2.Item1, "("+e1.Item2+"["+e2.Item2+"])") }
+       | n:NUM 
+	     { pair(n, n) }
+	   ;
+end
+*/
+// ---- step 4 --------------------------------------------------------------------
+/*
+precedence
+op left MINUS PLUS;
+
+rs shift LANGLE expr(PLUS MINUS) expr;
+rs shift RANGLE expr(PLUS MINUS) expr;
+
+rs try LANGLE expr(LANGLE RANGLE) expr;
+rs try RANGLE expr(LANGLE RANGLE) expr;
+end
+
+parsing
+
+comp -> e:expr { e };
+
+@expr -> e1:expr MINUS e2:expr 
+         { pair(e1.Item1 - e2.Item1, "("+e1.Item2+" - "+e2.Item2+")") }
+       | e1:expr PLUS e2:expr 
+         { pair(e1.Item1 + e2.Item1, "("+e1.Item2+" + "+e2.Item2+")") }
+       | e1:expr LANGLE e2:expr
+	     { pair(e1.Item1 << e2.Item1, "("+e1.Item2+" < "+e2.Item2+")") }
+       | e1:expr RANGLE e2:expr
+	     { pair(e1.Item1 >> e2.Item1, "("+e1.Item2+" > "+e2.Item2+")") }
+       | e1:expr LANGLE e2:expr RANGLE 
+         { pair((e1.Item1 & (1 << e2.Item1)) >> e2.Item1, "("+e1.Item2+"["+e2.Item2+"])") }
+       | n:NUM 
+	     { pair(n, n) }
+	   ;
+end
+*/
+

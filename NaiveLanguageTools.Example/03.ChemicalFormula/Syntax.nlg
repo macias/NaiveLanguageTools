@@ -1,0 +1,49 @@
+using 
+end
+
+namespace NaiveLanguageTools.Example.ChemicalFormula;
+
+lexer LexerFactory;
+options mre;
+
+tokens SymbolEnum;
+
+states StateEnum
+*INIT // default state
+end
+
+scanning
+"(" -> LPAREN;
+")" -> RPAREN;
+
+// regex as patterns
+/[0-9]+/ -> NUM, Convert.ToInt32($text);
+/[A-Z][a-z]*/ -> ATOM;
+
+%EOF -> EOF;
+
+end
+
+parser ParserFactory;
+
+types
+ATOM string;
+NUM int;
+end
+
+precedence
+op shift ATOM;
+op reduce LPAREN;
+end
+
+parsing
+
+comp -> e:elem { e };
+
+@elem -> LPAREN e:elem RPAREN n:NUM? { new Element(e,$(n : 1)) } 
+       | e:elem++ { new Element(e,1) }
+       | a:ATOM n:NUM? { new Element(a,$(n : 1)) }
+	   ;
+	   
+end
+

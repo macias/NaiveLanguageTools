@@ -1,0 +1,161 @@
+using 
+  System
+  System.Collections.Generic
+  System.Linq
+  System.Text
+end
+
+terminals
+  LBRACKET
+  RBRACKET
+  LBRACE
+  RBRACE
+  COMMA
+  NUM
+end
+
+types
+  CHAR char;
+  NUM int;
+end
+
+namespace NaiveLanguageTools.MultiRegex.RegexParser;
+
+lexer LexerFactory;
+parser ParserFactory;
+
+tokens SymbolEnum;
+
+states StateEnum
+*INIT
+BRACKET
+BRACE 
+end
+
+scanning
+"+" -> PLUS;
+"*" -> ASTERISK;
+"?" -> QMARK;
+"." -> DOT;
+"|" -> OR;
+"(" -> LPAREN;
+")" -> RPAREN;
+INIT BRACKET "\\d" -> CLASS,new CharClass(false,CharClass.Enum.Digit);
+INIT BRACKET "\\D" -> CLASS,new CharClass(true,CharClass.Enum.Digit);
+INIT BRACKET "\\s" -> CLASS,new CharClass(false,CharClass.Enum.WhiteSpace);
+INIT BRACKET "\\S" -> CLASS,new CharClass(true,CharClass.Enum.WhiteSpace);
+INIT BRACKET "\\w" -> CLASS,new CharClass(false,CharClass.Enum.Word);
+INIT BRACKET "\\W" -> CLASS,new CharClass(true,CharClass.Enum.Word);
+INIT BRACKET "\\f" -> CHAR, '\f';
+INIT BRACKET "\\n" -> CHAR, '\n';
+INIT BRACKET "\\r" -> CHAR, '\r';
+INIT BRACKET "\\t" -> CHAR, '\t';
+INIT BRACKET "\\v" -> CHAR, '\v';
+INIT BRACKET /\\x[\da-fA-F]{2}/ -> CHAR, StringExtensions.HexToChar($text.Substring(2));
+INIT BRACKET /\\u[\da-fA-F]{4}/ -> CHAR, StringExtensions.HexToChar($text.Substring(2));
+// escaping control symbols -- backslash followed by one of the special characters
+// it reads -- if you see a backslash, and then any of the symbol enclosed with square brackets
+// including backslash as well (the last symbol in square brackets) then treat it as regular character
+// INIT /\\[\{\}\^\+\.\*\[\]\?\(\)\$\|\\]/ -> CHAR, $text[1];
+INIT /\\[$?()*+.{}|\^\[\]\\]/ -> CHAR, $text[1];
+
+"[" -> { lexer.PushState(StateEnum.BRACKET);
+         $token = SymbolEnum.LBRACKET;
+       };
+BRACKET 
+	(
+		"]" -> { lexer.PopState();
+			  $token = SymbolEnum.RBRACKET;
+			};
+        // backslash followed by one of the special characters  
+        // same meaning as above (for INIT) only less escape sequences
+		/\\[\[\]\-\^\\]/ -> CHAR, $text[1];
+		"-" -> MINUS;
+		"^" -> NEG;
+	);
+"{" -> { lexer.PushState(StateEnum.BRACE);
+         $token = SymbolEnum.LBRACE;
+       };
+BRACE
+	(
+		"}" -> { lexer.PopState();
+			  $token = SymbolEnum.RBRACE;
+			};
+		/\d+/ -> NUM, Convert.ToInt32($text);
+		"," -> COMMA;
+	);
+
+// since we checked all supported backslash+something sequences
+// if we have still backslash in input it means user tries to pass
+// sequence which is not supported, unlike C# we consider this an error
+INIT BRACKET /\\./ -> Error, "Unrecognized escape sequence \""+$text.Substring(1)+"\"";
+INIT BRACKET /\\/ -> Error, "Empty escape sequence";
+
+INIT BRACKET /./ -> CHAR, $text.Single();
+
+%EOF -> { if (lexer.IsValidEofState)
+            $token = SymbolEnum.EOF;
+          else  
+          {
+            $value = "Invalid state at EOF";
+            $token = SymbolEnum.Error;
+          }
+        };
+end
+
+precedence
+end
+
+parsing
+
+s Regex -> alt_expr;
+
+bracket_elem -> CHAR
+              | CLASS
+			  | min:CHAR MINUS max:CHAR
+			    { Tuple.Create(min,max) }
+			  ;
+
+bracket Bracket -> LBRACKET NEG? bracket_elem+ RBRACKET
+           { new Bracket($($NEG?),$bracket_elem.ToArray()) }
+         ;
+
+rep Repetition -> /* empty */ 
+                 { Repetition.Create(1,1) }
+				| QMARK
+				  { Repetition.Create(0,1) }
+				| PLUS
+				  { Repetition.CreateWithMin(1) }
+				| ASTERISK
+				  { Repetition.CreateWithMin(0) }
+				| LBRACE NUM RBRACE
+				  { Repetition.Create($NUM,$NUM) }
+				| LBRACE min:NUM COMMA max:NUM RBRACE
+				  { Repetition.Create(min,max) }
+				| LBRACE NUM COMMA RBRACE
+				  { Repetition.CreateWithMin($NUM) }
+				| LBRACE COMMA NUM RBRACE
+				  { Repetition.CreateWithMax($NUM) }
+				;
+
+@atom_expr -> bracket
+            | CHAR
+            | CLASS
+              { new Bracket(false,$CLASS) }
+			| DOT
+              { new Bracket(true,'\n') }
+			| LPAREN _:alt_expr RPAREN
+			;
+
+@expr -> atom_expr rep
+         { new RegexElem($atom_expr,$rep) }
+	     ;
+
+@expr_concat List<RegexElem> -> expr+;
+
+
+@alt_expr -> (OR- expr_concat)+
+             { new AltRegex($expr_concat) }
+	         ;
+
+end

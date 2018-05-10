@@ -1,0 +1,24 @@
+namespace Testsuite;
+
+lexer LexerFactory02;
+parser ParserFactory02;
+tokens SymbolEnum02;
+
+states StateEnum
+*INIT
+end
+
+scanning
+"(" -> LPAREN;
+")" -> RPAREN;
+end
+
+parsing
+
+s -> a { null };
+
+@b -> LPAREN a* RPAREN { null };
+
+@a -> b* { null };
+
+end

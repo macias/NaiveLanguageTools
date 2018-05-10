@@ -1,0 +1,25 @@
+namespace Testsuite;
+
+lexer LexerFactory05;
+parser ParserFactory05;
+tokens SymbolEnum05;
+
+states StateEnum
+*INIT
+end
+
+scanning
+"a" -> A;
+"n" -> N;
+end
+
+parsing
+
+s -> d;
+
+t -> a | n;
+d -> t;
+a -> A;
+n -> N;
+
+end

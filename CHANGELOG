@@ -1,0 +1,743 @@
+2012-12-23:
+-----------------------------------------------------------------------
+* lexer speed-up (around x2.5)
+
+* parser speed-up (around x2)
+
+* a little of code polishing
+
+
+2013-01-01:
+-----------------------------------------------------------------------
+* lexer: added functions for case insensitive string matching
+
+* parser: more reasonable resolving shift/reduce conflict when
+  priorities of operators were defined
+
+
+2013-01-07:
+-----------------------------------------------------------------------
+* new experimental parser: project ForkingLalrParser -- see README in
+  its directory
+
+* changes to LALR parser in order to reduce the amount of code, mainly
+  precedence table has additional generic parameter for associativity;
+  your code will require one change -- adding "AssociativityEnum" as
+  first type argument for PrecedenceTable
+
+* parser: bugfix in computing minimal error recovery
+
+* parser: now user action on syntax error can return true to continue
+  parsing or false to stop it entirely
+
+
+2013-02-04:
+-----------------------------------------------------------------------
+* added printer for int labels -- for those poor souls who use ints as
+  symbols/states instead of enums
+
+
+2013-03-01:
+-----------------------------------------------------------------------
+* added First/Last-Column/Line properties to parsers
+
+* TokenMatch class: changed First/Last-Position into pairs of line and
+  column (change your code to use those properties accordingly)
+
+* lexer: hidden Line and Column properties (use line and column
+  properties of error/match token)
+
+
+2013-04-07:
+-----------------------------------------------------------------------
+* bugfix: cross-recurrent productions (A::=B, B::=A) give meaningful
+  report instead of throwing an exception
+
+* more informative messages about grammar conflicts
+
+
+2013-04-16:
+-----------------------------------------------------------------------
+* bugfix: follow, first and lookahead sets were "contaminated" with
+  non-terminals
+
+
+2013-04-28:
+-----------------------------------------------------------------------
+* bugfix: in forking LALR parsing the non-assoc operators caused
+  infinite loop
+
+* added new example to demonstrate "Try" associativity in forking LALR
+
+* ability to print out only part of DFA (most usually the one with
+  conflicts)
+
+* ability to print out the action table (for educational purposes)
+
+
+2013-05-20:
+-----------------------------------------------------------------------
+* bugfix: lexer rules are checked whether they match empty input
+
+* bugfix: corrected lexer rule in "Beyond LALR" example
+
+* parser: more relaxed check of using syntax error symbol in similar
+  productions
+
+* parser: ability to add productions with parse control. This allows
+  creating AST nodes and at the same time enforcing simple constraints
+  -- this is a good balance between too rigid flexer rules and
+  elaborate semantic analysis (see "Rule Constraints" example)
+
+* forking parser: added derived PrecedenceTable (a change in your code
+  is needed) with ability to specify not only on which operator should
+  parser fork but also in which productions (more precisely -- for
+  which LHS symbol). This brings more control and avoids forking as
+  remedy to sloppy parsing rules
+
+
+2013-05-27:
+-----------------------------------------------------------------------
+* bugfix in forking LALR: error messages are now also forked, otherwise
+  correct branch would be polluted with errors from incorrect one
+
+* parsers: user action on syntax error now has additional parameter --
+  error messages (change in your code is needed). In case of LALR this
+  is just adding dummy parameter, but in case of forking LALR it is
+  recommended to use it instead of printing out errors directly (see
+  the bugfix above)
+
+* forking parser: the way operator is selected when resolving
+  shift/reduce conflict is changed, however this is still
+  trial&error approach
+
+* forking parser: when adding productions it was too easy to mix
+  regular production and constrained production, thus for the latter
+  the adding method is renamed to "AddConstrainedProduction" (if you
+  used this method, change in your code is needed)
+
+
+2013-06-03:
+-----------------------------------------------------------------------
+* because of the new Google policy I will keep direct links to
+  repositories (where you can download this project from) in README
+  file. You can also visit my main site, http://skila.pl and get links
+  from there
+
+* parsers: not only grammar errors are reported but also warnings --
+  for now, unused operators in precedence table
+
+* forking parser: ability to fork on reduce/reduce conflict plus more
+  precise conditions when to fork
+
+
+2013-06-10:
+-----------------------------------------------------------------------
+* bugfix in forking parser: on forked reduce parser tried to remove too
+  many elements from the stack
+
+* forking parser: on reduce parser caches tail of the stack first, then
+  reduces it, so branch id is changed only when it is really forked
+  (i.e. branch numbering is more conservative now)
+
+
+2013-06-21:
+-----------------------------------------------------------------------
+* parsers: major rework, both versions are LALR(k) parsers
+
+* parsers: PrecedenceTable, instead of one overloaded method "Add", has
+  3 methods -- "AddOperator", "AddShiftReducePattern" (for resolving
+  shift/reduce conflict) and "AddReduceReducePattern" (for resolving
+  reduce/reduce conflict). The two latter methods are available only
+  in forking LALR parser. Change in your code is required
+
+* parsers: if you prefer Shift/Reduce action notion instead Right/Left
+  precedence you have appropriate synonyms defined (AssociativityEnum)
+
+
+2013-07-15:
+-----------------------------------------------------------------------
+* forking parser: pair of methods AddShiftReducePattern is renamed to
+  AddReduceShiftPattern and the shift/reduce arguments are swapped. The
+  reason for this is ability to pass multiple shift arguments. Change
+  in your code is required
+
+
+2013-07-22:
+-----------------------------------------------------------------------
+* forking parser: user parsing actions are postponed until parser finds
+  correct parsing tree. If none is found, no user action is called
+
+
+2013-09-10:
+-----------------------------------------------------------------------
+* forking parser: added automatic detection of optional production
+  (reminder: forking parser is experimental one)
+
+
+2013-09-16:
+-----------------------------------------------------------------------
+* stack lexer: new lexer was added, it allows to treat states in stack
+  manner (with push/pop operations)
+
+* lexer: if Value for token is not set by user, the recognized symbol
+  is assigned. In other words -- all recognized tokens coming from
+  lexer has non-null Value property (when parsing Value can be null for
+  tokens coming from parser -- i.e. non terminals)
+
+  Unlikely, but this change may alter your program!
+
+* parser generator: it is not ready for public use, but the foundations
+  have been laid
+
+
+2013-09-22:
+-----------------------------------------------------------------------
+* parser generator: added symbol's type definition, sets and sequences
+
+
+2013-10-02:
+-----------------------------------------------------------------------
+* lexer: correction to 2013-09-16 change -- if Value for token is not
+  set by user, the captured text is assigned (if it is null -- then
+  recognized symbol). The effect for Value and null is the same -- it
+  is guaranteed Value is not null when returning matched token, however
+  assigning text is more useful for user (consider recognizing
+  identifiers, all it takes now is returning appropriate token)
+
+* lexer: more robust performance -- removed recursive call when
+  scanning
+
+* lexer: ability to yield extra tokens
+
+* lexer: improved readability of scanning history
+
+* lexer generator: experimental stage, but it works for Skila (see
+  grammar template in Generator project)
+
+
+2013-10-03:
+-----------------------------------------------------------------------
+* lexer (builder): supports naive context scanning. The syntax of .nlg
+  file is changed as well -- now to return a simple expression one
+  writes:
+  -> token, expression;
+  instead of:
+  -> token { expression };
+
+
+2013-10-05:
+-----------------------------------------------------------------------
+* lexer: with state there is also a nesting counter stored
+
+* generator: implemented identifier conflict resolution
+
+* generator: added macro expansion in parsing rules
+
+
+2013-10-14:
+-----------------------------------------------------------------------
+* parsers: shortened history horizon -- parsing log files were too
+  large
+
+* parsers: parser no longer holds reports about grammar -- there is a
+  separate class for it (minor change in your code is required)
+
+* generator: altogether groups
+
+* generator: defining AST node type is no longer possible -- it is
+  always "object" type
+
+* generator: detection of variable usage in parser productions -- less
+  action proxies are built
+
+* generator: added the 4th form of macro expansion
+
+* generator: added nested macro expansions
+
+* generator: becomes true generator -- it creates action table directly
+  instead of code to build one
+
+* examples: added new one for generator
+
+
+2013-10-20:
+-----------------------------------------------------------------------
+* parsers: support for IParseControl -- the objects created in user
+  actions can indirectly change the flow of parsing process
+
+* generator: improved preliminary error reporting (minor change in
+  your code is required)
+
+* generator: support for repetition operators -- "*" and "+" -- for
+  single symbols, sequences and sets
+
+* generator: types definition -- multiple symbols names per one type
+  (line) are allowed
+
+* generator: using the name for entire set group is supported
+
+* generator: type of the symbol can be defined in production as well,
+  next to LHS symbol
+
+* generator: arbitrary order of sections in grammar file
+
+
+2013-10-23:
+-----------------------------------------------------------------------
+* First- and LastPosition are paired in Coordinates (probably minor
+  change in your code is required)
+
+* generator: altogether group is enclosed with "[" and "]&" characters
+  instead of "<" and ">" (change in grammar file is required)
+
+* generator: added local projection for repeated symbols
+
+
+2013-10-26:
+-----------------------------------------------------------------------
+* forking parser: bugfix -- after detecting errors in input the
+  production actions are not executed
+
+* generator: bugfix -- the typenames can be generic, for example
+  "List<string>"
+
+* generator: bugfix -- terminals not used in parser are not ignored
+  when creating enumeration type for symbols
+
+* generator: bugfix -- undefined symbols used in parsing are detected
+  and reported
+
+* generator: added guessing type name out of parsing actions
+
+* generator: added "terminals" section to specify terminals that are
+  out of reach of the generator
+
+
+2013-10-27:
+-----------------------------------------------------------------------
+* forking parser: pattern precedences does not have a higher precedence
+  over operator one by default. Change in your grammar might be
+  required -- if everything worked previously, just move all pattern
+  precedences down
+
+* forking parser: bugfix -- more strict picking up precedence rule
+
+
+2013-10-29:
+-----------------------------------------------------------------------
+* generator: bugfix -- error in internal parsing rules
+
+* generator: bugfix -- type name (set or inferred) of the projection
+  has priority over global type name associated with the symbol
+
+* generator: lexer and parser become optional to build
+
+
+2013-11-01:
+-----------------------------------------------------------------------
+* forking parser: bugfix -- removed auto-creating reduce+shift sequence
+
+* forking parser: collects info about nulled out (via none precedence)
+  conflicts -- it helps while debugging your own grammar
+
+* forking parser: added more detailed definition of reduce move on
+  reduce/shift conflict
+
+* forking parser: redesigned picking up operators on conflicts
+
+
+2013-11-06:
+-----------------------------------------------------------------------
+* generator: assuming symbol used in "types" section as defined
+
+* forking parser: reports error on ambiguous parsing (previously the
+  first correct parse was selected)
+
+* forking parser: added ability to define a marking for a production,
+  and taboo markings for given symbol
+
+* parsers: removed IParseControl and ParseControl, manually written
+  constraints are enforced by throwing ParseControlException (change
+  in your code might be required)
+
+
+2013-11-09:
+-----------------------------------------------------------------------
+* parsers: bugfix -- EOF explicitly included in action table
+  computation
+
+* generator: added inference of array types
+
+* generator: added automatic inclusion of "System.Collections.Generic",
+  "System.Linq" and "System" to generated files
+
+
+2013-11-13:
+-----------------------------------------------------------------------
+* forking parser: bugfix -- checking if start symbol is the only symbol
+  on stack
+
+* forking parser: bugfix -- reduce/reduce resolution is used against
+  shift/reduce resolution
+
+* examples: added chemical formula parsing
+
+* forking parser: reduce-reduce precedence entry -- allowing the same
+  input for different sets of productions
+
+* generator: added checking precedence section against unknown symbols
+
+* generator: added support for two-or-more repetitions of sequences
+
+* generator: added support for multiple named symbols within repeated
+  sequence
+
+* generator: added detection of unused terminals in parsing section,
+  and detection of undefined symbols in types section
+
+
+2013-12-07:
+-----------------------------------------------------------------------
+* bugfix -- set version number of the package in solution, no more
+  "0.1" all the time
+
+* generator: literals are allowed as terminals in parser rules
+
+* general speed-up: slight change in your code is required -- when
+  calling Parse pass ParserOptions object
+
+
+2014-01-28:
+-----------------------------------------------------------------------
+* generator: implicitly creating placeholder names for single anonymous
+  symbols
+
+* readers: started Readers library as (almost) ready to use parsers for
+  common file formats
+
+* readers: PBXProj parser added
+
+
+2014-01-30:
+-----------------------------------------------------------------------
+* readers: math expressions evaluator added
+
+
+2014-02-24:
+-----------------------------------------------------------------------
+* generator: the regex patterns -- patterns are interpreted as verbatim
+  strings (@"...") so you don't have to backslash a backslash, please
+  check you regex patterns for using double backslashes and replace
+  them with single ones
+
+* generator: bugfix -- terminals usage is not checked when parser is
+  not built
+
+* generator: bugfix -- gracefully handling empty code actions
+
+* generator: validates regex patterns while reading the rules
+
+* generator: added explicit validation of whether macro control
+  variables are defined
+
+* generator: added check against using types, precedence and
+  productions sections when not building parser
+
+* generator: grammar filename is added to header info of generated C#
+  files
+
+* generator: lexer rules -- regex and string patterns can be defined as
+  case insensitive by appending letter "i" at the end of the pattern
+
+* generator: tokens can be generated as constant integers instead of
+  enum
+
+* generator: ability to send warnings via RichParseControl objects
+
+* generator: ability to set parser/lexer factory method as "override"
+
+* generator: ability to set parent of parser/lexer factory class
+
+
+2014-02-24:
+-----------------------------------------------------------------------
+* lexer: tad more readable scanning history
+
+
+2014-09-28:
+-----------------------------------------------------------------------
+* lexer: semantic errors in lexer rules are reported
+
+* generator: $pos macro added
+
+* parser: basic LALR parser is dropped in favor of full LR(k) parser
+  (change in your code is required -- updating the namespaces and
+  referencing new parser library)
+
+
+2014-10-08:
+-----------------------------------------------------------------------
+* bugfix -- reduce/reduce conflicts are reported again
+
+* symbols and states are no longer statically represented as strings,
+  but dynamically computed -- this should allow to run NLT in parallel
+  (in theory) and to obfuscate the code while still maintaining symbol
+  and state names.
+  Note: You need to run NLT generator for you grammar files
+
+* examples: choice of "chemical formula" is visible in the menu
+
+* lexer: basic on-EOF action is provided by default
+
+* generator: improved error reporting on unknown placeholder
+
+
+2014-10-09:
+-----------------------------------------------------------------------
+* bugfix -- shift/reduce conflicts are properly reported again
+
+* parser: dead productions are reported as warnings, not errors
+
+
+2014-11-04:
+-----------------------------------------------------------------------
+* generator bugfix: verbatim strings were incorrectly recognized
+
+* generator: added error report when it is impossible to guess what
+  elements have to be aggregated with repetition
+
+* generator: when repeating single element it is taken for aggregation
+  by default
+
+* generator: lexer patterns can be compiled and built as transition
+  table (around *2 speed-up when executing generated lexer)
+
+* generator: added section `options`
+
+* parser generator: when the code block is omitted generator tries to
+  infer the end object, it is an error if it is impossible
+
+* `StringComparisonEnum` enum was renamed to `StringCaseComparison`
+  (change in your code might be required)
+
+
+2014-11-11:
+-----------------------------------------------------------------------
+* upload fix: the previous upload was missing MRE auto files
+
+
+2015-05-26:
+-----------------------------------------------------------------------
+* lexer bugfix: initial column number is used for all lines
+
+* generator bugfix: it is possible to use synthesized symbols in
+  precedence section of the grammar
+
+* generator bugfix: unknown symbols in "type" section cause warnings,
+  not errors
+
+* generator bugfix: positions of errors are added to several messages
+
+* generator bugfix: proper reporting on precedence rules errors
+
+* lexer: for external usage interface "ITokenMatch" was introduced
+  instead of class "TokenMatch" (change of code required)
+
+* lexer: ability to stop or continue scanning on error
+
+* lexer: "IsTokenRecognized" of "TokenMatch" is renamed to "HasToken"
+  and hidden for internal use only, compare token with error symbol
+  to test if the scanning was successful
+
+* parser: collecting non nested errors from user actions in single pass
+
+* parser: more accurate calculating position (line and column) of
+  productions
+
+* parser: Error symbol can be followed by terminal (as before) or by
+  substitution non-terminal (a non-terminal that can be exchanged by
+  other terminals in one to one ratio)
+
+* parser: some speed-up
+
+* generator: names for auto generated productions are longer and more
+  meaningful
+
+* generator: there is no more default mode of precedence rule (until
+  now it was "operator")
+
+* generator: ability to merge several precedence rules when they differ
+  only by lookahead
+
+* generator: added "$coords" pseudo-variable in the lexer section
+
+* generator: added support for context while scanning
+
+* generator: added method "RemoveTokens" to lexer
+
+* generator reports: action and edge tables are sorted by symbol name
+
+* generator doc: expanded info about MRE
+
+* generator: added "lexer-header" section
+
+* generator: lexer states section becomes optional
+
+
+2015-08-06:
+-----------------------------------------------------------------------
+* "Info" field in "SymbolPosition" class is dropped, instead "IsReal"
+  is added
+
+* generator: creating parser is divided into several methods to avoid
+  "too complex method" bug in Mono
+
+* generator: added support up to 16 elements in production (official
+  limit of C# Func type)
+
+* parser: ability to group precedence rules with single priority
+
+* parser: automatic resolving some of the conflits
+
+
+2015-08-23:
+-----------------------------------------------------------------------
+* generator bugfix: when using MRE it was not possible to escape braces
+  in regex patters
+
+* generator: "token" section renamed to "tokens" (change in your
+  grammar is required)
+
+* generator: "lexer-header" section merged with declaration of the
+  lexer (change in your grammar might be required)
+
+* generator: all lexer rules are written with arrow sign "->" (change
+  in your grammar might be required)
+
+* generator: "mre" option is on by default (change in your grammar
+  might be required)
+
+* generator: automatic removal some of the parsing conflicts (change in
+  your grammar precedence rules might be required -- check warning
+  report, what rules are not used anymore)
+
+* generator: some speed-up due to boostrapping the generator
+
+* generator: in "options" section each option can be preceeded with
+  plus or minus sign to switch on/off given option
+
+* generator: short form of lexer rule allow to specify the target state
+
+* generator: ability to pass alternative context in lexer rule
+
+* generator: ability to nest groups of lexer rules with the same states
+
+* generator: added support for pattern variables in lexer section
+
+* generator: ability to combine patterns in lexer section
+
+* generator: code put in braces is recognized as expression or
+  statement
+
+* generator: "$pos", "$coords" macros are available in parser section
+
+* generator: ability to declare parameters for lexer/parser factory
+  functions
+
+* generator: ability to create lexer states as int container
+
+* generator: shortened form of adding default states to lexer rules
+
+* generator: "%empty" meta-symbol added to use in parser rules
+
+
+2016-03-06:
+-----------------------------------------------------------------------
+* parser bugfix: initial empty production coordinates has correct
+  filename set
+
+* parser bugfix: recovery nonterminals are replaced by terminals
+
+* lexer bugfix: character expressed as "\x00" is recognized
+
+* lexer: non-stacking lexer "Lexer" class was removed, "StackLexer"
+  became simply "Lexer" (change in your code might be required)
+
+* generator: "match" object "Add" method was moved to lexer and renamed
+  to "AppendToken"; lexer method "YieldToken" was renamed to
+  "PrependToken" (change in your code might be required)
+
+* parser: AddTemplateProduction functions family is removed
+
+* generator: recursive productions have to be marked as such explicitly
+
+* generator: local projections feature was dropped
+
+* generator: syntax for "altogether" groups has changed from "[ ... ]&"
+  to "<...>"
+
+* generator: ability to create standalone class and directory for lexer
+  named patterns
+
+* generator: new repetition mode (combo) "+?"
+
+* lexer: invalid escape sequences are reported as an error
+
+
+2016-03-14:
+-----------------------------------------------------------------------
+* generator bugfix: missing description of mode "+?"
+
+
+2016-03-29:
+-----------------------------------------------------------------------
+* parser bugfix: more conservative (thus correct) comparing states
+  in DFA
+
+* generator: reduce-shift conflicts resolution via operator table
+
+
+2016-04-04:
+-----------------------------------------------------------------------
+* generator bugfix: reporting errors on overlapping stacks of
+  precedence rules
+
+* parser: casts are guarded with informative messages
+
+* generator: merged "precedence duplicate" errors
+
+
+2016-04-25:
+-----------------------------------------------------------------------
+* generator: multiple productions supported for reduce-shift operator
+  table
+
+* generator: more forgiving precedence patterns -- one can pass more
+  shift productions than used in conflict resolution
+
+* lexer: priority rules (first matched rule wins)
+
+
+2016-05-28:
+-----------------------------------------------------------------------
+* generator: added pseudo-variable "state"
+
+* parser: API changed to support returning multiple parsing trees in
+  future (change in your code is required)
+
+
+2016-06-26:
+-----------------------------------------------------------------------
+* generator: added support for C# code character literals
+
+* lexer: tab character jumps to the next "tab stop" which is placed
+  every 8 characters
+
+
+2018-05-10:
+-----------------------------------------------------------------------
+* overloaded SequenceHashCode function takes a hasher function
+
+* ReferenceEqualityComparer: fixed GetHashCode method, dropped Create
+  method in favor of Instance field

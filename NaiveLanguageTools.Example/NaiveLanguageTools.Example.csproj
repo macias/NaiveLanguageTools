@@ -1,0 +1,104 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
+    <ProductVersion>8.0.30703</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{BB255B0C-46EC-423A-9253-1BC019077C3B}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>NaiveLanguageTools.Example</RootNamespace>
+    <AssemblyName>NaiveLanguageTools.Example</AssemblyName>
+    <FileAlignment>512</FileAlignment>
+    <ReleaseVersion>1.13.11.16</ReleaseVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
+    <PlatformTarget>x86</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
+    <PlatformTarget>x86</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="01.Calculator\AstNode.cs" />
+    <Compile Include="01.Calculator\Calculator.cs" />
+    <Compile Include="01.Calculator\LexerFactory.auto.cs" />
+    <Compile Include="01.Calculator\ParserFactory.auto.cs" />
+    <Compile Include="01.Calculator\SymbolEnum.auto.cs" />
+    <Compile Include="02.PatternsAndForking\LexerFactory.auto.cs" />
+    <Compile Include="02.PatternsAndForking\ParserFactory.auto.cs" />
+    <Compile Include="02.PatternsAndForking\ParserFactory.cs" />
+    <Compile Include="02.PatternsAndForking\PatternsAndForking.cs" />
+    <Compile Include="02.PatternsAndForking\SymbolEnum.auto.cs" />
+    <Compile Include="03.ChemicalFormula\ChemicalFormula.cs" />
+    <Compile Include="03.ChemicalFormula\Element.cs" />
+    <Compile Include="03.ChemicalFormula\LexerFactory.auto.cs" />
+    <Compile Include="03.ChemicalFormula\ParserFactory.auto.cs" />
+    <Compile Include="03.ChemicalFormula\SymbolEnum.auto.cs" />
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NaiveLanguageTools.Common\NaiveLanguageTools.Common.csproj">
+      <Project>{2F3E5BB4-FF7F-4BB1-9CBF-5503B5EE0948}</Project>
+      <Name>NaiveLanguageTools.Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\NaiveLanguageTools.Lexer\NaiveLanguageTools.Lexer.csproj">
+      <Project>{F2DFE16E-ED23-4DC9-9D65-C83F9773FCD8}</Project>
+      <Name>NaiveLanguageTools.Lexer</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\NaiveLanguageTools.MultiRegex\NaiveLanguageTools.MultiRegex.csproj">
+      <Project>{C075ACC9-D866-4FF3-B9DF-ECD34620C593}</Project>
+      <Name>NaiveLanguageTools.MultiRegex</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\NaiveLanguageTools.Parser\NaiveLanguageTools.Parser.csproj">
+      <Project>{74D8901E-4655-408C-A490-6A5ACAEE1220}</Project>
+      <Name>NaiveLanguageTools.Parser</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="01.Calculator\Info.txt" />
+    <Content Include="02.PatternsAndForking\Info.txt" />
+    <Content Include="03.ChemicalFormula\Info.txt" />
+  </ItemGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <None Include="01.Calculator\Syntax.nlg" />
+    <None Include="02.PatternsAndForking\refresh.bat" />
+    <None Include="02.PatternsAndForking\refresh.sh" />
+    <None Include="02.PatternsAndForking\Syntax.nlg" />
+    <None Include="03.ChemicalFormula\refresh.bat" />
+    <None Include="03.ChemicalFormula\refresh.sh" />
+    <None Include="03.ChemicalFormula\Syntax.nlg" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

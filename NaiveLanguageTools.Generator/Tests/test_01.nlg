@@ -1,0 +1,18 @@
+namespace Testsuite;
+
+parser ParserFactory01;
+tokens SymbolEnum01;
+
+parsing
+
+s -> a { $a };
+
+b -> { null }
+   | b a { null }
+   ; 
+
+a -> { null }
+   | a b { null }
+   ;
+
+end

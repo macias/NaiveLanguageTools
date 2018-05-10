@@ -1,0 +1,145 @@
+using 
+
+end
+
+terminals
+STR
+end
+
+types
+ID string;
+end
+
+namespace PBXProj;
+
+lexer LexerFactory;
+parser ParserFactory;
+
+tokens TokenEnum;
+
+states StateEnum
+*INIT
+STR
+COMMENT
+end
+
+scanning
+"{" -> LBRACE;
+"(" -> LPAREN;
+")" -> RPAREN;
+"}" -> RBRACE;
+"=" -> EQ;
+";" -> SEMI;
+"," -> COMMA;
+
+/[A-Za-z_0-9]+/ -> ID;
+
+STR "\"" -> {
+                   if (!string_error)
+                    validateString($match, false);
+                    lexer.PopState();
+                 };
+
+
+STR (
+            "\\b" -> { string_buf.Append("\b"); };
+            "\\t" -> { string_buf.Append("\t"); };
+            "\\n" -> { string_buf.Append("\n"); };
+            "\\f" -> { string_buf.Append("\f"); };
+            "\\\n" -> { string_buf.Append("\n"); };
+
+            "\n" -> { if (!string_error)
+                        validateString($match, true);
+                      lexer.PopState();
+                    };
+
+            "\\\0" -> {
+                        if (!string_error)
+                        {
+                          string_error = true;
+                          $value = "String contains escaped null character.";
+                          $token = TokenEnum.Error;
+                        }
+                      };
+
+            /\\(.|\r)/ -> { string_buf.Append($text.Substring(1)); };
+            
+            "\0" -> {
+                      if (!string_error)
+                      {
+                        string_error = true;
+                        $value = "String contains null character.";
+                        $token = TokenEnum.Error;
+                      }
+                   };
+
+            /.|\r/ -> { string_buf.Append($text); };
+
+);    
+
+
+/[ \f\r\t\u000b]/ -> { };
+"\n" -> { };
+
+// one-line commect
+/\/\/(\r|.)*[\n]?/ -> { };
+
+INIT COMMENT "/*" -> { lexer.PushState(StateEnum.COMMENT); };
+
+COMMENT "*/" -> { lexer.PopState(); };
+
+"*/" -> { 
+          $value = "Unmatched */"; 
+          $token = TokenEnum.Error; 
+	};
+
+COMMENT /.|\r/ -> { };
+
+COMMENT "\n" -> { };
+
+// error handling -- catch any character in any case
+/.|\r/  -> Error;
+"\n" -> Error;
+
+%EOF -> {
+                if (!lexer.IsValidEofState)
+                {
+                    $value = "Invalid state at EOF";
+                    $token = TokenEnum.Error;
+                }
+                else 
+                {
+                    $token = TokenEnum.EOF;
+                }
+        };
+end
+
+
+precedence
+
+end
+
+parsing
+     
+proj -> dict { $dict }
+      ;
+
+@pair Tuple<string,object> -> id:ID EQ val:[ID STR dict list] SEMI { Tuple.Create(id,(object)val) }
+	  ;
+	  
+@dict -> LBRACE pair* RBRACE { $pair.ToDictionary(it => it.Item1,it => it.Item2) }
+      ;
+
+@list -> LPAREN l:[str_list id_list dict_list] RPAREN { l }
+      ;
+	  
+id_list -> (COMMA- ID)* { $ID }
+         ;
+
+str_list -> (COMMA- STR)+ { $STR }
+          ;
+
+@dict_list -> (COMMA- dict)+ { $dict }
+           ;
+	 
+end

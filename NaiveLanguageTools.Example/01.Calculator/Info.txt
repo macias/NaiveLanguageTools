@@ -1,0 +1,8 @@
+This is basic example of lexer and parser. You can enter mathemical
+expressions and observe how they are expressed as abstract syntax
+tree.
+
+To make it work do the following:
+* build entire solution
+* run "refresh" from command line to re-generate .auto.cs files
+* run the project

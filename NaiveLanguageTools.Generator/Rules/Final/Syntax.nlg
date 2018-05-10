@@ -1,0 +1,938 @@
+using 
+  System
+  System.Collections.Generic
+  System.Linq
+  System.Text
+  NaiveLanguageTools.Generator.AST
+  NaiveLanguageTools.Parser.InOut
+  NaiveLanguageTools.Generator.Builder
+end
+
+types
+  CODE_SNIPPET CodeSnippet;
+  IDENTIFIER string;
+  CODE_PLACEHOLDER string;
+  REGEX,STRING LexPattern;
+end
+
+namespace NaiveLanguageTools.Generator.Rules.Final;
+
+lexer LexerFactory : ILexerFactory
+{
+  LexPattern lex_pattern = null;
+  StringBuilder str_buf = null;
+  bool code_statement = false;
+  public static string IdentifierPattern { get { return identifier; } }
+};
+
+parser ParserFactory
+{
+  readonly LexerInject lexerInject = new LexerInject(LexerFactory.IdentifierPattern);
+};
+
+options +mre;
+
+tokens int SymbolEnum;
+
+terminals
+  CODE_SNIPPET
+  RBRACE
+  RMACRO
+end
+
+states int StateEnum
+        *GRAMMAR,
+        COMMENT,
+
+        STR_GRAMMAR,
+        REGEX_GRAMMAR,
+
+        // code expression is code given without enclosing braces, so we know it is code just because of its placement
+        CODE_EXPR, 
+        CODE_BLOCK,
+        IN_CODE_MACRO,
+
+        STR_CODE,
+        VERBATIM_STR_CODE,
+        
+        OPTIONS_SECTION
+        FACTORY_SECTION
+
+        CHAR_CODE
+end
+
+scanning
+"using" -> USING;
+"namespace" -> NAMESPACE;
+"parser" -> PARSER, +FACTORY_SECTION;
+"lexer" -> LEXER, +FACTORY_SECTION;
+"options" -> OPTIONS, +OPTIONS_SECTION;
+FACTORY_SECTION OPTIONS_SECTION ";" -> SEMI, -;
+"terminals" -> TERMINALS;
+"var" -> VAR;
+"patterns" -> PATTERNS;
+"types" -> TYPES;
+"tokens" -> TOKENS;
+"int"(TOKENS | STATES) -> INT;
+FACTORY_SECTION "override"(LEXER | PARSER) -> OVERRIDE; // this form is left as a bit of a test of different approach/syntax
+"states" -> STATES;
+"precedence" -> PRECEDENCE;
+"parsing" -> PARSING;
+"scanning" -> SCANNING;
+"end" -> END;
+"%EOF" -> EOF_ACTION;
+"%mark" -> MARK;
+"%empty" -> EMPTY;
+var identifier = /[A-Za-z_][A-Za-z_0-9]*/;
+* FACTORY_SECTION OPTIONS_SECTION identifier -> IDENTIFIER;
+";" -> SEMI;
+* FACTORY_SECTION ":" -> COLON;
+"=" -> EQ;
+"->" -> RARROW;
+"|" -> PIPE;
+"?" -> QUESTION_MARK;
+* FACTORY_SECTION "." -> DOT;
+"[" -> LBRACKET;
+"]" -> RBRACKET;
+"(" -> LPAREN;
+")" -> RPAREN;
+* FACTORY_SECTION "<" -> LANGLE;
+* FACTORY_SECTION ">" -> RANGLE;
+"*" -> ASTERISK;
+"+?" -> PLUS_OPT;
+* OPTIONS_SECTION "+" -> PLUS;
+* OPTIONS_SECTION "-" -> MINUS;
+"++" -> PLUSPLUS;
+"^" -> ACCENT;
+"#" -> HASH;
+"@" -> AT;
+"!" -> EXCL;
+
+// ----- strings and characters in code --------------------------------------------
+// we are just rewriting input controlling when the string ends, so we can 
+// analyze real C# code properly (in short we want to know if we are in C# code, or in C# string)
+
+CHAR_CODE STR_CODE "\\\\" -> { str_buf.Append($text); }; // double backslash
+CHAR_CODE STR_CODE "\\\"" -> { str_buf.Append($text); };
+CHAR_CODE STR_CODE "\\\'" -> { str_buf.Append($text); };
+VERBATIM_STR_CODE "\"\"" -> { str_buf.Append($text); };
+
+// start string in code
+CODE_BLOCK CODE_EXPR IN_CODE_MACRO "\"" -> { str_buf.Append($text); }, +STR_CODE;
+
+// start verbatim string in code
+CODE_BLOCK CODE_EXPR IN_CODE_MACRO "@\"" -> { str_buf.Append($text); }, +VERBATIM_STR_CODE;
+
+// end string in code
+STR_CODE VERBATIM_STR_CODE "\""  -> { str_buf.Append($text); }, -;
+
+// start character in code
+CODE_BLOCK CODE_EXPR IN_CODE_MACRO "'" -> { str_buf.Append($text); }, +CHAR_CODE;
+
+// end character in code
+CHAR_CODE "'"  -> { str_buf.Append($text); }, -;
+
+// ----- string and regex common --------------------------------------------
+CHAR_CODE REGEX_GRAMMAR STR_CODE STR_GRAMMAR /\r|\n/ -> Error, "New line not allowed inside a string/regex";
+
+// two backslashes
+STR_GRAMMAR REGEX_GRAMMAR "\\\\"  -> { lex_pattern.AddSpecial($text, @"\"); };
+
+// ----- anything else for string in code ------------------------------------
+CHAR_CODE STR_CODE VERBATIM_STR_CODE /./ -> { str_buf.Append($text); };
+// ----- string --------------------------------------------------------------
+// start string in grammar
+"\"" -> { lex_pattern = new LexPattern(LexPattern.TypeEnum.String); }, +STR_GRAMMAR;
+
+STR_GRAMMAR (
+  // end string in grammar
+  "\"" -> STRING, {
+                $value = lex_pattern.SetStringComparison(StringCaseComparison.Sensitive);
+                lex_pattern = null;
+        }, -;
+
+  // end string in grammar
+  "\"i" -> STRING, {
+                $value = lex_pattern.SetStringComparison(StringCaseComparison.Insensitive);
+                lex_pattern = null;
+            }, -;
+
+  // http://msdn.microsoft.com/en-us/library/aa691087%28v=vs.71%29.aspx
+  // http://msdn.microsoft.com/en-us/library/aa664669%28v=vs.71%29.aspx
+  // http://blogs.msdn.com/b/csharpfaq/archive/2004/03/12/what-character-escape-sequences-are-available.aspx   
+  "\\0" -> { lex_pattern.AddSpecial($text, "\0"); };
+  "\\a" -> { lex_pattern.AddSpecial($text, "\a"); };
+  "\\b" -> { lex_pattern.AddSpecial($text, "\b"); };
+  "\\f" -> { lex_pattern.AddSpecial($text, "\f"); };
+  "\\n" -> { lex_pattern.AddSpecial($text, "\n"); };
+  "\\r" -> { lex_pattern.AddSpecial($text, "\r"); };
+  "\\t" -> { lex_pattern.AddSpecial($text, "\t"); };
+  "\\v" -> { lex_pattern.AddSpecial($text, "\v"); };
+  "\\'" -> { lex_pattern.AddSpecial($text, "\'"); };
+  "\\\"" -> { lex_pattern.AddSpecial($text, "\""); };
+  
+  // http://msdn.microsoft.com/en-us/library/bb311038.aspx
+  //STR_CODE (
+    /\\x[0-9a-fA-F]{1,4}/ -> { lex_pattern.AddHexCode($text, $text.Substring(2)); };
+    /\\u[0-9a-fA-F]{4}/ -> { lex_pattern.AddHexCode($text, $text.Substring(2)); };
+    /\\U[0-9a-fA-F]{8}/ -> { lex_pattern.AddHexCode($text, $text.Substring(2)); };
+
+  //); // end of STR_CODE
+
+  // since we checked all supported backslash+something sequences
+  // if we have still backslash in input it means user tries to pass
+  // sequence which is not supported, unlike C# we consider this an error
+  /\\./ -> Error, "Unrecognized escape sequence \""+$text.Substring(1)+"\"";
+  /\\/ -> Error, "Empty escape sequence";
+  /./ -> { lex_pattern.Add($text); };
+
+); // end of STR_GRAMMAR
+
+// ----- regex --------------------------------------------------------------
+// regex start
+"/" -> { lex_pattern = new LexPattern(LexPattern.TypeEnum.Regex); }, +REGEX_GRAMMAR;
+REGEX_GRAMMAR (
+  // regex end
+  "/" -> REGEX, {
+                  $value = lex_pattern.SetStringComparison(StringCaseComparison.Sensitive);
+                  lex_pattern = null;
+                }, -;
+
+  // regex end
+  "/i" -> REGEX, {
+                    $value = lex_pattern.SetStringComparison(StringCaseComparison.Insensitive);
+                    lex_pattern = null;
+                 }, -;
+
+  // backslash and end-of-regex (which is not because of the backslash)
+  "\\/" -> { lex_pattern.Add($text.Substring(1)); };
+  /./ -> { lex_pattern.Add($text); };
+); // end of REGEX_GRAMMAR
+
+// ---- whitespaces --------------------------
+// keep the variable for macro clean from whitespaces
+whitespaces = /[ \r\n\f\t\u000b]+/;
+
+IN_CODE_MACRO whitespaces (LMACRO) -> { };
+CODE_BLOCK CODE_EXPR IN_CODE_MACRO whitespaces -> { str_buf.Append($text); };
+* OPTIONS_SECTION FACTORY_SECTION whitespaces -> { };
+
+// ----------- macros ----------------------
+IN_CODE_MACRO (
+  CODE_BLOCK "$(" -> {
+                       lexer.PrependToken(SymbolEnum.CODE_SNIPPET, new CodeSnippet(str_buf.ToString(),code_statement));
+                       code_statement = false;
+                       str_buf.Clear();
+
+                       $token = SymbolEnum.LMACRO;
+                     }, +IN_CODE_MACRO;
+
+  ":" -> {
+           if (lexer.NestingCounter > 0)
+             str_buf.Append($text);
+           else
+           {
+             // keeeping macro variable clean
+             if (str_buf.ToString().Trim().Length > 0)
+               lexer.PrependToken(SymbolEnum.CODE_SNIPPET, new CodeSnippet(str_buf.ToString(),code_statement));
+
+             str_buf.Clear();
+             code_statement = false;
+             $token = SymbolEnum.COLON;
+           }
+         };
+
+  "(" -> {
+           str_buf.Append($text);
+           ++lexer.NestingCounter;
+         };
+
+  ")" -> {
+           if (lexer.NestingCounter > 0)
+           {
+             str_buf.Append($text);
+             --lexer.NestingCounter;
+           }
+           else
+           {
+             // keeping macro variable clean
+             if (str_buf.ToString().Trim().Length > 0)
+               lexer.PrependToken(SymbolEnum.CODE_SNIPPET, new CodeSnippet(str_buf.ToString(),code_statement));
+
+             str_buf.Clear();
+             code_statement = false;
+             $token = SymbolEnum.RMACRO;
+             lexer.PopState();
+           }
+         };
+);
+
+// ----------- expressions ----------------------
+// this is not 100% correct, because after COMMA can be LBRACE, so this is not CODE_EXPR but CODE_BLOCK
+// so we have to fix this later
+","( RARROW IDENTIFIER) -> COMMA, { 
+                                    str_buf = new StringBuilder(); 
+                                    code_statement = false; 
+                                  }, +CODE_EXPR;
+            
+// not an expression, but it has to be below the more restricted COMMA rule
+* FACTORY_SECTION OPTIONS_SECTION "," -> COMMA;
+
+CODE_EXPR ";" -> {
+                   lexer.PrependToken(SymbolEnum.CODE_SNIPPET, new CodeSnippet(str_buf.ToString(),false));
+                   $token = SymbolEnum.SEMI;
+                   str_buf = null;
+                 }, -;
+
+// ----------- code block ----------------------
+FACTORY_SECTION "(" -> LPAREN, 
+    {
+      str_buf = new StringBuilder(); 
+      code_statement = false;
+    }, +CODE_BLOCK;
+
+* FACTORY_SECTION "{" -> LBRACE, { 
+                 str_buf = new StringBuilder(); 
+                 code_statement = false;
+               }, +CODE_BLOCK;
+
+// start code block -- this is the correction of the previous too eager switch to CODE_EXPR
+CODE_EXPR "{" ( RARROW IDENTIFIER COMMA ) 
+  -> LBRACE, {
+               lexer.PopState(); // remove the previous CODE_EXPR
+               lexer.PushState(StateEnum.CODE_BLOCK);
+               str_buf = new StringBuilder();
+               code_statement = false;
+             };
+
+CODE_BLOCK "{" -> { str_buf.Append($text); }, +CODE_BLOCK;
+CODE_BLOCK "(" -> { str_buf.Append($text); }, +CODE_BLOCK;
+
+CODE_BLOCK "}" -> {
+                    lexer.PopState();
+                    if (lexer.State != StateEnum.CODE_BLOCK)
+                    {
+                      lexer.PrependToken(SymbolEnum.CODE_SNIPPET, new CodeSnippet(str_buf.ToString(),code_statement));
+                      str_buf = null;
+                      $token = SymbolEnum.RBRACE;
+                    }
+                    else
+                      str_buf.Append($text);
+                  };
+
+CODE_BLOCK ")" -> {
+                    lexer.PopState();
+                    if (lexer.State != StateEnum.CODE_BLOCK)
+                    {
+                      lexer.PrependToken(SymbolEnum.CODE_SNIPPET, new CodeSnippet(str_buf.ToString(),code_statement));
+                      str_buf = null;
+                      $token = SymbolEnum.RPAREN;
+                    }
+                    else
+                      str_buf.Append($text);
+                  };
+
+// identifier with dollar sign ("$") in front
+CODE_BLOCK CODE_EXPR IN_CODE_MACRO /\$/ + identifier
+  -> CODE_PLACEHOLDER, {
+                         if (str_buf.Length>0)
+                           lexer.PrependToken(SymbolEnum.CODE_SNIPPET, new CodeSnippet(str_buf.ToString(),code_statement));
+                         str_buf.Clear();
+                         code_statement = false;
+
+                         $value = $text.Substring(1);
+                       };
+            
+CODE_BLOCK CODE_EXPR IN_CODE_MACRO identifier 
+  -> IDENTIFIER, {
+                   if (str_buf.Length > 0)
+                     lexer.PrependToken(SymbolEnum.CODE_SNIPPET, new CodeSnippet(str_buf.ToString(),code_statement));
+                   str_buf.Clear();
+                   code_statement = false;
+                 };
+
+CODE_BLOCK ";" -> { 
+                    code_statement = true;
+                    str_buf.Append($text); 
+                  };
+CODE_BLOCK CODE_EXPR IN_CODE_MACRO /./ -> { str_buf.Append($text); };
+
+// ---- comments -----------------------------------------
+* FACTORY_SECTION OPTIONS_SECTION CODE_BLOCK COMMENT CODE_EXPR IN_CODE_MACRO "/*" -> +COMMENT;
+COMMENT "*/" -> -;
+COMMENT /.|\n|\r/ -> { };
+
+* FACTORY_SECTION OPTIONS_SECTION CODE_BLOCK CODE_EXPR IN_CODE_MACRO "*/" -> Error, "Unmatched */";
+
+// single-liners comment
+* FACTORY_SECTION OPTIONS_SECTION CODE_BLOCK CODE_EXPR IN_CODE_MACRO /\/\/.*\n/ -> { };
+end
+
+precedence
+op shift CODE_SNIPPET CODE_PLACEHOLDER IDENTIFIER;
+//rr try LPAREN single_lex_pattern state_list; // unfolding aliases: enabled
+rr try LPAREN single_lex_pattern state_item; // unfolding aliases: disabled
+end
+
+parsing
+
+start_symbol -> g:grammar { g };
+
+@dot_identifier string -> id:IDENTIFIER 
+                         { id }
+                       | s1:dot_identifier DOT s2:IDENTIFIER
+                         { s1 + "." + s2 }
+                       ;
+
+@typename_list string -> t:typename
+                        { t }
+                      | s1:typename_list COMMA s2:typename
+                        { s1+","+s2 }
+                      ;
+
+@typename string -> id:dot_identifier
+                    { id }
+                  | id:dot_identifier QUESTION_MARK 
+                    { id+"?" }
+                  | s1:dot_identifier LANGLE s2:typename_list RANGLE
+                    { s1+"<"+s2+">" }
+                  | s1:dot_identifier LANGLE s2:typename_list RANGLE QUESTION_MARK
+                    { s1+"<"+s2+">?" }
+                  ;
+
+grammar -> list:grammar_elements
+           { RichParseControl.Execute(warnings => new Grammar(list, lexerInject.GetImplicitLexerRules(), warnings)) }
+           ;
+
+@grammar_elements List<Tuple<Grammar.GrammarElementEnum, object>> 
+  -> %empty
+     { new List<Tuple<Grammar.GrammarElementEnum,object>>() }
+   | list:grammar_elements elem:grammar_elem
+     { list.Append(elem) }
+   ;
+
+grammar_elem Tuple<Grammar.GrammarElementEnum, object>
+  -> USING opt_ns_list END
+     { new Tuple<Grammar.GrammarElementEnum, object>(Grammar.GrammarElementEnum.Using, $opt_ns_list ) }
+   ;
+
+@opt_ns_list List<string> -> %empty
+                            { new List<string>() }
+                          | opt_ns_list name:dot_identifier
+                            { $opt_ns_list.Append(name) }
+                          | opt_ns_list COMMA name:dot_identifier
+                            { $opt_ns_list.Append(name) }
+                          ;
+
+// ------ terminals ------------------------------------------------------------------------
+
+grammar_elem -> TERMINALS terms:opt_id_list END
+                { new Tuple<Grammar.GrammarElementEnum, object>(Grammar.GrammarElementEnum.Terminals, (List<string>)terms) }
+              ;
+
+@opt_id_list List<string> -> %empty
+                            { new List<string>() }
+                          | terms:opt_id_list name:IDENTIFIER
+                            { ((List<string>)terms).Append(name) }
+                          | terms:opt_id_list COMMA name:IDENTIFIER
+                            { ((List<string>)terms).Append(name) }
+                          ;
+
+// ------ types ------------------------------------------------------------------------
+
+grammar_elem -> TYPES opt_types END
+                { new Tuple<Grammar.GrammarElementEnum, object>(Grammar.GrammarElementEnum.Types, $opt_types) }
+              ;
+
+@opt_types List<SymbolInfo> -> %empty
+                              { new List<SymbolInfo>() }
+                            | opt_types type_info:type_info
+                              { $opt_types.Append(type_info) }
+                            ;
+
+// used in type definitions
+@id_list List<string> -> id:IDENTIFIER
+                        { new List<string>().Append(id) }
+                      | list:id_list COMMA id:IDENTIFIER
+                        { list.Append(id) }
+                      ;
+
+type_info IEnumerable<SymbolInfo> -> list:id_list type_name:typename SEMI
+                                     { SymbolInfo.Create(list, type_name) }
+                                   ;
+
+// ---- taboo ---------------------------------------------------------------------
+
+@opt_taboo_group List<string> -> %empty
+                                { new List<string>() }
+                              | list:opt_taboo_group HASH id:IDENTIFIER
+                                { list.Append(id) }
+                              ;
+// -- options ---------------------------------------------------------------------
+
+grammar_elem -> NAMESPACE name:dot_identifier SEMI
+                { new Tuple<Grammar.GrammarElementEnum, object>(Grammar.GrammarElementEnum.Namespace, name) }
+              ;
+
+option Tuple<string,bool> -> id:IDENTIFIER
+                             { Tuple.Create(id, true) }
+                           | PLUS id:IDENTIFIER
+                             { Tuple.Create(id, true) }
+                           | MINUS id:IDENTIFIER
+                             { Tuple.Create(id, false) }
+                           ;
+
+@option_list List<Tuple<string,bool>> -> option
+                                        { new List<Tuple<string, bool>>().Append($option) }
+                                      | list:option_list COMMA opt:option
+                                        { list.Append(opt) }
+                                      ;
+
+grammar_elem -> OPTIONS list:option_list SEMI
+                { new Tuple<Grammar.GrammarElementEnum, object>(Grammar.GrammarElementEnum.Options,new GrammarOptions(list.ToArray())) }
+              ;
+
+// -- factory -----------------------------------------------------------------------
+factory_name FactoryTypeInfo -> name:IDENTIFIER
+                                { new FactoryTypeInfo(name, null, withOverride: false) }
+                              | OVERRIDE name:IDENTIFIER
+                                { new FactoryTypeInfo(name, null, withOverride: true) }
+                              ;
+
+factory_params FactoryTypeInfo -> f:factory_name
+                                  { f }
+                                | info:factory_name LPAREN code:code_body RPAREN
+                                  { info.SetParams(code) }
+                                ;
+
+factory_extend FactoryTypeInfo -> f:factory_params
+                                  { f }
+                                | info:factory_params COLON parent:typename
+                                  { info.SetParent(parent) }
+                                ;
+
+factory_info FactoryTypeInfo -> f:factory_extend
+                                { f } 
+                              | info:factory_extend code:braced_opt_code_body
+                                { info.SetCode(code) }
+                              ;
+
+grammar_elem -> LEXER info:factory_info SEMI
+                { new Tuple<Grammar.GrammarElementEnum, object>(Grammar.GrammarElementEnum.LexerTypeInfo,info) }
+              | PARSER info:factory_info SEMI
+                { new Tuple<Grammar.GrammarElementEnum, object>(Grammar.GrammarElementEnum.ParserTypeInfo, info) }
+              | TOKENS name:IDENTIFIER SEMI
+                { new Tuple<Grammar.GrammarElementEnum, object>(Grammar.GrammarElementEnum.TokenName,new TokenInfo( name, ConstMode.Enum)) }
+              | TOKENS INT name:IDENTIFIER SEMI
+                { new Tuple<Grammar.GrammarElementEnum, object>(Grammar.GrammarElementEnum.TokenName, new TokenInfo(name, ConstMode.Int)) }
+              | PATTERNS name:dot_identifier SEMI
+                { new Tuple<Grammar.GrammarElementEnum, object>(Grammar.GrammarElementEnum.PatternsInfo, new PatternsInfo(name, null)) }
+              | PATTERNS name:dot_identifier dir:STRING SEMI
+                { new Tuple<Grammar.GrammarElementEnum, object>(Grammar.GrammarElementEnum.PatternsInfo, new PatternsInfo(name, dir)) }
+              ;
+
+// ----- precedence ----------------------------
+
+grammar_elem -> PRECEDENCE prec_entries:opt_prec_entries END
+                { new Tuple<Grammar.GrammarElementEnum, object>(Grammar.GrammarElementEnum.Prededence,prec_entries) }
+              ;
+
+@opt_prec_entries List<Precedence> -> %empty
+                                           { new List<Precedence>() }
+                                         | opt_prec_entries prec_entry_line
+                                           { $opt_prec_entries.Append($prec_entry_line) }
+                                         ;
+
+@id_list_spaced List<string> -> name:IDENTIFIER
+                               { new List<string>().Append(name) }
+                             | list:id_list_spaced name:IDENTIFIER
+                               { list.Append(name) }
+                             ;
+
+rich_precedence_word PrecedenceWord -> name:IDENTIFIER  // for example: "expression"
+                                  { new PrecedenceWord(name) }
+                                  
+                                  // for example: "expression(INCREMENT DECREMENT)"
+                                | name:IDENTIFIER LPAREN stack:id_list_spaced RPAREN
+                                  { new PrecedenceWord(name, stack) }
+                                ;
+
+@opt_rich_prec_word_list List<PrecedenceWord> -> %empty
+                                           { new List<PrecedenceWord>() }
+                                         | list:opt_rich_prec_word_list word:rich_precedence_word
+                                           { list.Append(word) }
+                                         ;
+
+input_list List<string> -> name:IDENTIFIER // single input symbol
+                           { new List<string>().Append(name) }
+                         | LPAREN names:id_list_spaced RPAREN // set of input symbols
+                           { names }
+                         ;
+            
+prec_entry Precedence -> mode:IDENTIFIER // mode = reduce-shift, reduce-reduce
+                         assoc:IDENTIFIER // resolution = shift, reduce, ...
+                         input:input_list // set of input symbols
+                         list:opt_rich_prec_word_list
+                         { Precedence.Create(parser.Coordinates, mode, assoc, input, list) }
+                       ;
+
+op_assoc Tuple<string,string> -> assoc:IDENTIFIER // resolution = shift, reduce, ...
+                                 name:IDENTIFIER 
+                               { Tuple.Create(assoc,name) }
+                               ;
+                                   
+op_prec_entry IEnumerable<Precedence> -> mode:IDENTIFIER // mode = operator
+                         LPAREN
+                         assoc:op_assoc+ 
+                         RPAREN
+                         prod:IDENTIFIER+
+                         { Precedence.CreateOperators(parser.Coordinates, mode, assoc, prod) }
+                         ;
+                       
+// same priority among those entries
+@prec_entry_line List<Precedence> -> entry:prec_entry SEMI
+                                    { new List<Precedence>().Append(entry) }
+                                  | entry:op_prec_entry SEMI
+                                    { new List<Precedence>().Append(entry) }  
+                                  | head:prec_entry COMMA tail:prec_entry_line
+                                    {{ head.PriorityGroupEnd = false; tail.First().PriorityGroupStart = false; return tail.Prepend(head); }}
+                                  | head:op_prec_entry COMMA tail:prec_entry_line
+                                    {{ head.Last().PriorityGroupEnd = false; tail.First().PriorityGroupStart = false; return tail.Prepend(head); }}
+                                  ;
+
+// ----- states ----------------------------
+
+state_item string -> id:IDENTIFIER { id };
+
+def_state_item string -> ASTERISK id:IDENTIFIER { id };
+
+@opt_mixed_state_list List<Tuple<bool, string>> 
+  -> %empty
+     { new List<Tuple<bool, string>>() }
+   | list:opt_mixed_state_list COMMA? item:state_item
+     { list.Append(Tuple.Create(false, item)) }
+   | list:opt_mixed_state_list COMMA? item:def_state_item
+     { list.Append(Tuple.Create(true, item)) }
+   ;
+
+grammar_elem -> STATES typename:IDENTIFIER list:opt_mixed_state_list END
+                { new Tuple<Grammar.GrammarElementEnum,object>(Grammar.GrammarElementEnum.LexerStates, new StatesInfo(typename, ConstMode.Enum, list)) }
+              | STATES INT typename:IDENTIFIER list:opt_mixed_state_list END
+                { new Tuple<Grammar.GrammarElementEnum,object>(Grammar.GrammarElementEnum.LexerStates, new StatesInfo(typename, ConstMode.Int, list)) }
+              ;
+
+// ----- scanning ----------------------------
+
+@state_list List<string> -> item:state_item
+                           { new List<string>().Append(item) }
+                         | ASTERISK
+                           { new List<string>().Append(StatesInfo.AllDefault) }
+                         | list:state_list item:state_item
+                           { list.Append(item) }
+                         | list:state_list ASTERISK
+                           { list.Append(StatesInfo.AllDefault) }
+                         ;
+
+lex_pattern_expr LexPattern -> s:STRING 
+                               { s }
+                             | re:REGEX
+                               { re }
+                             ;
+
+variable LexPatternVariable -> id:IDENTIFIER EQ s:lex_pattern_expr SEMI
+                               { new LexPatternVariable(false,id,s) }
+                             | VAR id:IDENTIFIER EQ s:lex_pattern_expr SEMI
+                               { new LexPatternVariable(true,id,s) }
+                             ;
+
+single_lex_pattern ILexPattern -> p:lex_pattern_expr
+                                  { p }
+                                | id:IDENTIFIER
+                                  { new LexPatternName(id) }
+                                ;
+
+@combo_lex_pattern List<ILexPattern> -> pattern:single_lex_pattern
+                                       { new List<ILexPattern>().Append(pattern) }
+                                     | list:combo_lex_pattern PLUS pattern:single_lex_pattern
+                                       { list.Append(pattern) }
+                                     ;
+
+lex_pattern List<ILexPattern> -> p:combo_lex_pattern
+                                 { p }   
+                               | EOF_ACTION
+                                 { new List<ILexPattern>().Append(LexPattern.CreateEof()) }
+                               ;
+
+opt_context List<List<string>> -> %empty
+                                  { }
+                                | LPAREN list:context_alt_list RPAREN
+                                  { list }
+                                ;
+
+@context_alt_list List<List<string>> -> elem:context_list
+                                       { new List<List<string>>().Append(elem) }
+                                     | list:context_alt_list PIPE elem:context_list
+                                       { list.Append(elem) }
+                                     ;
+
+@context_list List<string> -> elem:IDENTIFIER
+                             { new List<string>().Append(elem) }
+                           | list:context_list elem:IDENTIFIER
+                             { list.Append(elem) }
+                           ;
+
+state_action string -> PLUS state:IDENTIFIER 
+                       { state }
+                     | MINUS
+                       { LexItem.PopState }
+                     ;
+
+// there is a lot of copying but there is no exact symmetry between various combinations of the syntax
+// for example, there is
+// "a" -> A;
+// "a" -> { };
+// but there is no
+// "a" -> A, { };
+// because it does not make really any sense (it has the same meaning as first line, only with more writing)
+lex_item_group IEnumerable<LexItem> 
+  -> pattern:lex_pattern context:opt_context RARROW token:IDENTIFIER SEMI
+     { LexItem.AsExpression(pattern, context, token, state:null,code: null) }
+   | pattern:lex_pattern context:opt_context RARROW state:state_action SEMI
+     { LexItem.AsExpression(pattern, context, null, state, null, resolved:true) }
+   | pattern:lex_pattern context:opt_context RARROW token:IDENTIFIER COMMA code:code_body COMMA state:state_action SEMI
+     { LexItem.AsExpression(pattern, context, token, state, code) }
+   | pattern:lex_pattern context:opt_context RARROW token:IDENTIFIER COMMA code_or_state:code_body SEMI
+     { LexItem.AsExpression(pattern, context, token, state: null, code: code_or_state) }
+   | pattern:lex_pattern context:opt_context RARROW token:IDENTIFIER COMMA code:code_body COMMA SEMI
+     { LexItem.AsExpression(pattern, context, token, state: null, code: code, resolved: true) }
+// -- as statements
+   | pattern:lex_pattern context:opt_context RARROW code:braced_opt_code_body SEMI
+     { LexItem.AsDetectedStatement(pattern, context, token: null, state: null, code: code, resolved: true) }
+   // above copied with added state action
+   | pattern:lex_pattern context:opt_context RARROW code:braced_opt_code_body COMMA state:state_action SEMI
+     { LexItem.AsDetectedStatement(pattern, context, token: null, state: state, code: code, resolved: true) }
+   | pattern:lex_pattern context:opt_context RARROW token:IDENTIFIER COMMA code:braced_opt_code_body SEMI
+     { LexItem.AsDetectedStatement(pattern, context, token: token, state: null, code: code, resolved: true) }
+   | pattern:lex_pattern context:opt_context RARROW token:IDENTIFIER COMMA code:braced_opt_code_body COMMA state:state_action SEMI
+     { LexItem.AsDetectedStatement(pattern, context, token: token, state: state, code: code, resolved: true) }
+   ;
+
+@opt_lex_items List<IScanningRule> -> %empty
+                                     { new List<IScanningRule>() }
+                                   | group:opt_lex_items item:variable
+                                     { group.Append(item) }
+
+                                   | group:opt_lex_items items:lex_item_group
+                                     { group.Append(items) }
+                                   | group:opt_lex_items sts:state_list items:lex_item_group
+                                     { group.Append(items.Select(it => it.AppendStates(sts))) }
+                                   | group:opt_lex_items sts:state_list LPAREN items:opt_lex_items RPAREN SEMI
+                                     { 
+                                       items.WhereType<LexItem>().ForEach(it => it.AppendStates(sts));
+                                       return group.Append(items);
+                                     }
+                                   
+                                   | group:opt_lex_items EXCL items:lex_item_group
+                                     { group.Append(items.Select(it => it.EnablePriority(true))) }
+                                   | group:opt_lex_items EXCL sts:state_list items:lex_item_group
+                                     { group.Append(items.Select(it => it.AppendStates(sts).EnablePriority(true))) }
+                                   | group:opt_lex_items EXCL sts:state_list LPAREN items:opt_lex_items RPAREN SEMI
+                                     { 
+                                       items.WhereType<LexItem>().ForEach(it => it.AppendStates(sts).EnablePriority(true));
+                                       return group.Append(items);
+                                     }
+                                   ;
+
+grammar_elem -> SCANNING list:opt_lex_items END
+                { new Tuple<Grammar.GrammarElementEnum, object>(Grammar.GrammarElementEnum.ExplicitLexerRules,list) }
+              ;
+
+// ----- code ----------------------------
+@code_mix CodeMix -> body:code_body
+                    { new CodeMix($pos).AddBody(body) }
+                  | macro:code_macro
+                    { new CodeMix($pos).AddMacro(macro) }
+                  | code:code_mix body:code_body
+                    { code.AddBody(body) }
+                  | code:code_mix macro:code_macro
+                    { code.AddMacro(macro) }
+                  ;
+
+// ----- code macro ----------------------------
+
+macro_ctrl CodePiece -> s:IDENTIFIER
+                        { CodePiece.CreateIdentifier(s) }
+                      | s:CODE_PLACEHOLDER
+                        { CodePiece.CreatePlaceholder(s) }
+                      ;
+                    
+@code_macro CodeMacro -> LMACRO name:macro_ctrl RMACRO
+                        { new CodeMacro(name, false, null) }
+                        // here code has to be equal to "?" only
+                      | LMACRO name:macro_ctrl code_body RMACRO 
+                        {
+                          if ($code_body.Make().Trim() != "?")
+                            throw ParseControlException.NewAndRun("Invalid code after identifier.");
+                          return new CodeMacro(name, true, null); 
+                        }
+                      | LMACRO name:macro_ctrl COLON mix:code_mix RMACRO
+                        { new CodeMacro(name, false, null, mix) }
+                      | LMACRO name:macro_ctrl var_body:code_body COLON mix:code_mix RMACRO
+                        { new CodeMacro(name, false, var_body, mix) }
+                      | LMACRO name:macro_ctrl COLON mix1:code_mix COLON mix2:code_mix RMACRO
+                        { new CodeMacro(name, false, null, mix1, mix2) }
+                      ;
+
+
+// ----- code body ----------------------------
+code_atom CodeBody -> snippet:CODE_SNIPPET
+                      { new CodeBody().AddSnippet(snippet) }
+                    | placeholder:CODE_PLACEHOLDER
+                      { new CodeBody().AddPlaceholder(placeholder) }
+                    | id:IDENTIFIER
+                      { new CodeBody().AddIdentifier(id) }
+                    ;
+
+@code_body CodeBody -> a:code_atom
+                      { a }
+                    | code:code_body atom:code_atom
+                      { code.Append(atom) }
+                    ;
+
+braced_opt_code_body CodeBody -> LBRACE RBRACE
+                                 { new CodeBody() }
+                               | LBRACE code:code_body RBRACE
+                                 { code }
+                               ;
+// ====== parsing ====================================================
+dynamic_token string -> id:IDENTIFIER
+                        { id }
+                      | STRING
+                        { lexerInject.RegisterDynamicTokenString($STRING) }
+                      ;
+
+named_symbol RhsSymbol -> var_name:IDENTIFIER COLON token:dynamic_token taboo:opt_taboo_group
+                          { new RhsSymbol($pos, var_name, token, taboo, marked: false) }
+                        | var_name:IDENTIFIER COLON ACCENT token:dynamic_token taboo:opt_taboo_group
+                          { new RhsSymbol($pos, var_name, token, taboo, marked: true) }
+                        ; 
+
+anon_symbol RhsSymbol -> token:dynamic_token taboo:opt_taboo_group
+                         { new RhsSymbol($pos, null, token, taboo, marked: false) }
+                       | ACCENT token:dynamic_token taboo:opt_taboo_group
+                         { new RhsSymbol($pos, null, token, taboo, marked: true) }
+                       ;
+
+symbol RhsSymbol -> s:named_symbol 
+                    { s }
+                  | s:anon_symbol
+                    { s }
+                  ;
+
+deco_symbol IRhsEntity -> symbol  
+                        | symbol MINUS
+                          { $symbol.SetSkip(true) }
+                        | symbol rep:repetition
+                          { RhsGroup.CreateSequence($pos, rep, $symbol) }
+                        ;
+
+@sym_list List<IRhsEntity> -> elem:deco_symbol
+                            { new List<IRhsEntity>().Append(elem) }
+                          | elem:group
+                            { new List<IRhsEntity>().Append(elem) }
+                          | sym_list elem:deco_symbol
+                            { $sym_list.Append(elem) }
+                          | sym_list elem:group
+                            { $sym_list.Append(elem) }
+                          ;
+
+@sym_list_block List<IRhsEntity> -> sym_list
+                                       { new List<IRhsEntity>().Append(RhsGroup.Create($sym_list)) }
+                                     | block:sym_list_block COMMA sym_list
+                                       { block.Append(RhsGroup.Create($sym_list)) }
+                                     ;
+
+// ---------- parsing groups with single symbol -------------------------------------------------------------------
+
+opt_repetition RepetitionEnum -> %empty
+                                 { RepetitionEnum.Once }
+                               | r:repetition 
+                                 { r }
+                               ;
+
+repetition RepetitionEnum -> ASTERISK 
+                             { RepetitionEnum.EmptyOrMany }
+                           | PLUS_OPT
+                             { RepetitionEnum.NullOrMany }
+                           | PLUS
+                             { RepetitionEnum.OneOrMore }
+                           | PLUSPLUS
+                             { RepetitionEnum.TwoOrMore }
+                           | QUESTION_MARK
+                             { RepetitionEnum.Option }
+                           ;
+
+// ---------- parsing groups -------------------------------------------------------------------
+
+@group RhsGroup -> LANGLE block:sym_list_block RANGLE rep:opt_repetition
+                  { RhsGroup.CreateAltogether($pos, block, rep) }
+                | LBRACKET block:sym_list_block RBRACKET rep:opt_repetition
+                  { RhsGroup.CreateSet($pos, block, rep) }
+                | LPAREN list:sym_list RPAREN rep:opt_repetition
+                  { RhsGroup.CreateSequence($pos, rep, list.ToArray()) }
+                | name:IDENTIFIER COLON LANGLE block:sym_list_block RANGLE rep:opt_repetition
+                  { RhsGroup.CreateAltogether($pos, name, block, rep) }
+                | name:IDENTIFIER COLON LBRACKET block:sym_list_block RBRACKET rep:opt_repetition
+                  { RhsGroup.CreateSet($pos, name, block, rep) }
+                | name:IDENTIFIER COLON LPAREN list:sym_list RPAREN rep:opt_repetition
+                  { RhsGroup.CreateSequence($pos, name, rep, list.ToArray()) }                     
+                ;
+
+opt_group_list List<RhsGroup> -> %empty
+                                 { new List<RhsGroup>() }
+                               | sym_list // sym_list containts groups
+                                 { RhsGroup.RebuildAsGroups($sym_list) }
+                               ;
+
+// ----- alternatives ---------------------------------------------------------------------------------
+
+opt_alt_action CodeMix -> LBRACE _:code_mix RBRACE
+                        | %empty
+                          { }
+                        ;
+            
+alt AltRule -> EMPTY action:opt_alt_action
+               { new AltRule($pos, null, new List<RhsGroup>(), action) }
+             | list:opt_group_list action:opt_alt_action
+               { new AltRule($pos, null, list, action) }
+             | MARK LPAREN mark:IDENTIFIER RPAREN list:opt_group_list action:opt_alt_action
+               { new AltRule($pos, mark, list, action) }
+             ;
+
+@alt_list List<AltRule> -> alt
+                          { new List<AltRule>().Append($alt) }
+                        | alt_list PIPE alt
+                          { $alt_list.Append($alt) }
+                        ;
+
+prod Production -> lhs_sym:IDENTIFIER RARROW alt_list SEMI
+                   { Production.CreateUser(new SymbolInfo(lhs_sym,null), RecursiveEnum.No, $alt_list) }
+                 | lhs_sym:IDENTIFIER lhs_type:typename RARROW alt_list SEMI
+                   { Production.CreateUser(new SymbolInfo(lhs_sym, lhs_type), RecursiveEnum.No, $alt_list) }
+				 | AT lhs_sym:IDENTIFIER RARROW alt_list SEMI
+                   { Production.CreateUser(new SymbolInfo(lhs_sym,null), RecursiveEnum.Yes, $alt_list) }
+                 | AT lhs_sym:IDENTIFIER lhs_type:typename RARROW alt_list SEMI
+                   { Production.CreateUser(new SymbolInfo(lhs_sym, lhs_type), RecursiveEnum.Yes, $alt_list) }				   
+                 ;
+
+@opt_prod_list List<Production> -> %empty
+                                  { new List<Production>() }
+                                | list:opt_prod_list prod
+                                  { list.Append($prod) }
+                                ;
+
+grammar_elem -> PARSING list:opt_prod_list END
+                { new Tuple<Grammar.GrammarElementEnum, object>(Grammar.GrammarElementEnum.ParserRules, list) }
+              ;
+
+end

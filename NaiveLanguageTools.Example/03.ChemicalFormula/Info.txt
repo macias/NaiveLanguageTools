@@ -1,0 +1,9 @@
+I know very little about chemistry so this example might be wrong
+from scientific POV. Enter formula (like H2O or (Cl2)2) and
+observe how it is split into atoms.
+
+To make it work do the following:
+* build entire solution
+* run "refresh" from command line to re-generate .auto.cs files
+* run the project
+

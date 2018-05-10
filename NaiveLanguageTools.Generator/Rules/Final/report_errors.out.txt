@@ -1,0 +1,16 @@
+REDUCE/REDUCE conflict for input: LPAREN[35] Affected items: 86.0, 86.1
+REDUCE/REDUCE conflict for input: LPAREN[35] Affected items: 129.0, 129.1
+
+
+# live-production (n: next-lookaheads) (a: after-lookaheads) (c: cover-set) (h: horizon-set) <-- Shift/Closure source state
+
+
+86(94)
+86.0)  single_lex_pattern[87] := IDENTIFIER[26] .	 (n: lparen[35],plus[41],rarrow[29] )	 (a: lparen[35],plus[41],rarrow[29] )	 <-- s:40.11 s:157.11
+86.1)  state_item[81] := IDENTIFIER[26] .	 (n: asterisk[39],eof_action[23],identifier[26],lparen[35],regex[48],string[47] )	 (a: asterisk[39],eof_action[23],identifier[26],lparen[35],regex[48],string[47] )	 <-- s:40.23 s:157.23
+
+129(155)
+129.0)  single_lex_pattern[87] := IDENTIFIER[26] .	 (n: lparen[35],plus[41],rarrow[29] )	 (a: lparen[35],plus[41],rarrow[29] )	 <-- s:78.10
+129.1)  state_item[81] := IDENTIFIER[26] .	 (n: asterisk[39],eof_action[23],identifier[26],lparen[35],regex[48],string[47] )	 (a: asterisk[39],eof_action[23],identifier[26],lparen[35],regex[48],string[47] )	 <-- s:78.21
+
+

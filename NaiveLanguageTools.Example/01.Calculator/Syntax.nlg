@@ -1,0 +1,83 @@
+using 
+  System
+  System.Collections.Generic
+  System.Linq
+  System.Text
+end
+
+types
+exp AstNode;
+NUM double;
+end
+
+namespace NaiveLanguageTools.Example.Calculator;
+
+options mre;
+
+lexer LexerFactory;
+parser ParserFactory;
+
+tokens SymbolEnum;
+
+states StateEnum
+*INIT // default state
+COMMENT
+end
+
+scanning
+"+" -> PLUS;
+"-" -> MINUS;
+"*" -> MULT, SymbolEnum.MULT; // make the Value equal to MULT as well
+"/" -> DIV;
+"^" -> POWER;
+
+// regex as pattern
+/[0-9]+/ -> { 
+                $token = SymbolEnum.NUM;
+                $value = Convert.ToDouble($text);
+         };
+
+" " -> { };
+
+"#" -> { lexer.PushState(StateEnum.COMMENT); };
+COMMENT /./ -> { };
+
+// do not use such rule in your code -- it is a waste; input not covered by the scanning rules will give ERROR anyway
+/./ -> Error; 
+
+%EOF -> EOF;
+
+end
+
+precedence
+
+op left MINUS PLUS;
+op left MULT DIV;
+op right POWER;
+
+end
+
+parsing
+
+s -> e:exp { e };
+
+@exp -> "(" e:exp ")"
+        { e }
+	  | e1:exp PLUS e2:exp
+	    { new AstNode(SymbolEnum.PLUS, e1, e2) }
+      | e1:exp MINUS e2:exp
+	    { new AstNode(SymbolEnum.MINUS, e1, e2) }
+      | e1:exp tok:MULT e2:exp
+	    { new AstNode((SymbolEnum)tok, e1, e2) }
+      | e1:exp DIV e2:exp 
+	    { new AstNode(SymbolEnum.DIV, e1, e2) }
+      | e1:exp POWER e2:exp
+	    { new AstNode(SymbolEnum.POWER, e1, e2) }
+      | n:NUM
+	    { new AstNode(n) }
+      | "(" Error ")"
+	    // no code
+	  ;
+
+
+end
