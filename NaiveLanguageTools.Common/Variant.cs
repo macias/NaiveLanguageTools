@@ -1,16 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace NaiveLanguageTools.Common
 {
-
     /// T is common type
-    public class Variant<T,  
-        R1, R2>
-where R1 : T,
-where R2 : T
+    public class Variant<T, R1, R2>
+        where R1 : T
+        where R2 : T
     {
         private readonly object _value;
         public bool HasValue { get { return _value != null; } }
@@ -34,13 +29,13 @@ where R2 : T
         }
         public override bool Equals(object obj)
         {
-            if (obj is Variant<T,R1,R2>)
-                return this.Equals(obj as Variant<T,R1,R2>);
+            if (obj is Variant<T, R1, R2>)
+                return this.Equals(obj as Variant<T, R1, R2>);
             else
                 throw new ArgumentException();
         }
 
-        public bool Equals(Variant<T,R1,R2> comp)
+        public bool Equals(Variant<T, R1, R2> comp)
         {
             if (Object.ReferenceEquals(comp, null))
                 return false;

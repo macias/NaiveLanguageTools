@@ -24,6 +24,9 @@ or grammar in NLT format:
 
 you should be able to use it :-).
 
+## Status
+
+I am not able to focus on this project except bug fixes.
 
 ## Documentation
 
